@@ -1,0 +1,79 @@
+# ==============================================================================
+# OceanguardAI - Training, Evaluation & Research
+# ==============================================================================
+
+# Python
+__pycache__/
+*.py[codz]
+*.egg-info/
+.venv/
+venv/
+env/
+.Python
+build/
+dist/
+*.egg
+*.whl
+
+# Model files (too large for git — use LFS or external storage)
+models/
+outputs/
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.bin
+*.safetensors
+*.gguf
+*.task
+*.litertlm
+
+# Dataset binaries (images - too large)
+datasets/prepared/*.jpg
+datasets/prepared/*.png
+datasets/prepared/*.jpeg
+datasets/test/*.jpg
+datasets/test/*.png
+datasets/test/*.jpeg
+prepared_dataset_docker/
+prepared_dataset_v1/
+
+# Keep JSONL annotation files
+!datasets/prepared/*.jsonl
+
+# Environment & credentials
+.env
+*.token
+hf_token.txt
+credentials*.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Debug logs
+logcat*.txt
+*.log
+evaluation_log.txt
+
+# Cache
+.cache/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+unsloth_compiled_cache/
+
+# Docker build context (optional)
+# Uncomment if you don't want Docker files versioned:
+# docker-compose*.yaml
+# Dockerfile*
+

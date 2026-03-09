@@ -1,0 +1,242 @@
+# ==============================================================================
+# Dockerfile Optimizado para RTX 5090 (Blackwell sm_120)
+# Requiere: CUDA 12.8+, PyTorch 2.6+
+# Gemma3N Fine-tuning con Unsloth
+# ==============================================================================
+
+# Base image con CUDA 12.8 y cuDNN 9
+FROM nvidia/cuda:12.8.0-cudnn9-devel-ubuntu22.04
+
+# Metadata
+LABEL maintainer="asanc.tech@gmail.com"
+LABEL description="Gemma3N Fine-tuning optimizado para RTX 5090 Blackwell"
+LABEL cuda_version="12.8.0"
+LABEL pytorch_version="2.6.0"
+LABEL version="1.0-rtx5090"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONUTF8=1 \
+    # CUDA Memory optimization
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    # Blackwell Architecture (sm_120)
+    TORCH_CUDA_ARCH_LIST="12.0" \
+    FORCE_CUDA=1 \
+    # HuggingFace cache
+    HF_HOME=/workspace/.cache/huggingface \
+    HF_DATASETS_CACHE=/workspace/.cache/huggingface/datasets \
+    TRANSFORMERS_CACHE=/workspace/.cache/huggingface/transformers
+
+# ==============================================================================
+# System packages installation
+# ==============================================================================
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
+    build-essential \
+    cmake \
+    ninja-build \
+    # Python 3.11
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    python3.11-venv \
+    # Development tools
+    git \
+    wget \
+    curl \
+    vim \
+    nano \
+    htop \
+    tmux \
+    tree \
+    # Utilities
+    zip \
+    unzip \
+    # Monitoring
+    nvtop \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    python -m pip install --upgrade pip setuptools wheel
+
+# ==============================================================================
+# Install PyTorch 2.6+ with CUDA 12.8 support (CRITICAL for RTX 5090)
+# ==============================================================================
+
+RUN pip install --no-cache-dir \
+    torch==2.6.0+cu128 \
+    torchvision==0.21.0+cu128 \
+    torchaudio==2.6.0+cu128 \
+    --index-url https://download.pytorch.org/whl/cu128
+
+# Verify PyTorch installation
+RUN python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA:', torch.version.cuda); print('cuDNN:', torch.backends.cudnn.version())"
+
+# ==============================================================================
+# Install Unsloth with CUDA 12.8 support
+# ==============================================================================
+
+# Install dependencies first
+RUN pip install --no-cache-dir \
+    packaging \
+    ninja \
+    wheel
+
+# Install Unsloth from source (ensures sm_120 support)
+RUN pip install --no-cache-dir \
+    "unsloth[cu128-torch260] @ git+https://github.com/unslothai/unsloth.git"
+
+# ==============================================================================
+# Install core ML dependencies (compatible versions)
+# ==============================================================================
+
+RUN pip install --no-cache-dir \
+    # HuggingFace ecosystem
+    "transformers>=4.47.0,<4.52.0" \
+    "datasets>=4.5.0,<5.0.0" \
+    "accelerate>=1.2.0" \
+    "peft>=0.13.2" \
+    "trl>=0.12.0" \
+    # Quantization
+    "bitsandbytes>=0.44.0" \
+    # Configuration management
+    pyyaml \
+    omegaconf \
+    hydra-core \
+    # Progress bars and logging
+    tqdm \
+    rich \
+    tensorboard \
+    # GPU monitoring
+    gpustat \
+    nvitop \
+    # Data handling
+    pandas \
+    pyarrow \
+    # Development
+    ipython \
+    ipywidgets \
+    jupyter
+
+# ==============================================================================
+# Install Flash Attention 2 (OPTIMIZED for Blackwell)
+# ==============================================================================
+
+# Install build dependencies
+RUN pip install --no-cache-dir ninja packaging wheel
+
+# Build Flash Attention from source with sm_120 support
+RUN pip install --no-cache-dir flash-attn --no-build-isolation || \
+    echo "⚠ Warning: Flash Attention build failed, will use eager attention"
+
+# Verify Flash Attention installation
+RUN python -c "try: import flash_attn; print(f'✓ Flash Attention {flash_attn.__version__} installed'); except: print('⚠ Flash Attention not available')"
+
+# ==============================================================================
+# Install vision and augmentation libraries
+# ==============================================================================
+
+RUN pip install --no-cache-dir \
+    # Image processing
+    "pillow>=10.0.0" \
+    "opencv-python-headless>=4.8.0" \
+    # Data augmentation (CRITICAL for underwater)
+    "albumentations>=1.3.1" \
+    # Visualization
+    "matplotlib>=3.8.0" \
+    "seaborn>=0.12.0" \
+    "plotly>=5.17.0" \
+    # Scientific computing
+    "scikit-learn>=1.3.0" \
+    "scipy>=1.11.0" \
+    # Optimization
+    "onnx>=1.15.0" \
+    "onnxruntime-gpu>=1.16.0"
+
+# ==============================================================================
+# Create unsloth user (non-root for security)
+# ==============================================================================
+
+RUN groupadd -r unsloth && \
+    useradd -r -g unsloth -m -s /bin/bash unsloth && \
+    echo "unsloth:gemma3n2025" | chpasswd && \
+    usermod -aG sudo unsloth
+
+# ==============================================================================
+# Setup workspace structure
+# ==============================================================================
+
+WORKDIR /workspace/project
+
+RUN mkdir -p \
+    /workspace/project/outputs \
+    /workspace/project/prepared_dataset \
+    /workspace/project/prepared_dataset_docker \
+    /workspace/project/tools \
+    /workspace/project/configs \
+    /workspace/project/scripts \
+    /workspace/project/notebooks \
+    /workspace/project/models \
+    /workspace/.cache/huggingface/transformers \
+    /workspace/.cache/huggingface/datasets \
+    /workspace/.cache/huggingface/hub
+
+# Set permissions
+RUN chown -R unsloth:unsloth /workspace
+
+# Switch to unsloth user
+USER unsloth
+
+# ==============================================================================
+# Verify installations (CPU-only checks during build)
+# ==============================================================================
+
+RUN python -c "import torch; print('✓ PyTorch:', torch.__version__)" && \
+    python -c "import torch; print('✓ CUDA Version:', torch.version.cuda)" && \
+    python -c "import transformers; print('✓ Transformers:', transformers.__version__)" && \
+    python -c "import trl; print('✓ TRL:', trl.__version__)" && \
+    python -c "import peft; print('✓ PEFT:', peft.__version__)" && \
+    python -c "import bitsandbytes; print('✓ BitsAndBytes:', bitsandbytes.__version__)" && \
+    python -c "import albumentations; print('✓ Albumentations:', albumentations.__version__)" && \
+    echo "✓ All packages installed successfully"
+
+# Note: GPU-dependent checks (CUDA availability, Unsloth, Flash Attention)
+# will be verified at runtime when container has GPU access
+
+# ==============================================================================
+# Healthcheck - Verify GPU and CUDA availability
+# ==============================================================================
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import torch; \
+                   assert torch.cuda.is_available(), 'CUDA not available'; \
+                   cap = torch.cuda.get_device_capability(); \
+                   assert cap == (12, 0), f'Wrong compute capability: {cap}, expected (12, 0) for Blackwell'; \
+                   print('✓ RTX 5090 (Blackwell sm_120) detected')" || exit 1
+
+# ==============================================================================
+# Default command
+# ==============================================================================
+
+CMD ["/bin/bash"]
+
+# ==============================================================================
+# Build & Run Instructions
+# ==============================================================================
+# Build:
+#   docker build -f Dockerfile.rtx5090 -t gemma3n-rtx5090:latest .
+#
+# Run:
+#   docker run --gpus all -it --rm \
+#     -v $(pwd):/workspace/project \
+#     --shm-size=64g \
+#     gemma3n-rtx5090:latest
+#
+# Verify GPU:
+#   docker run --gpus all --rm gemma3n-rtx5090:latest \
+#     python -c "import torch; print(torch.cuda.get_device_name(0)); print(torch.cuda.get_device_capability(0))"
+# ==============================================================================

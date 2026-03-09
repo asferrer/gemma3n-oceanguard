@@ -1,0 +1,121 @@
+# Core dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.35.0
+datasets>=2.14.0
+accelerate>=0.24.0
+huggingface_hub>=0.19.0
+
+# Unsloth for efficient training
+# Install separately: pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+
+# Computer Vision
+opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0
+albumentations>=1.3.1
+Pillow>=10.0.0
+
+# Data processing
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.10.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.17.0
+
+# Deep Learning utilities
+einops>=0.7.0
+timm>=0.9.0
+evaluate>=0.4.0
+
+# ONNX and optimization
+onnx>=1.14.0
+onnxruntime>=1.16.0
+onnx-simplifier>=0.4.33
+
+# For Jetson deployment (install on Jetson only)
+# tensorrt>=8.5.0  # Pre-installed with JetPack
+# pycuda>=2022.2  # pip install pycuda
+
+# Monitoring and logging
+wandb>=0.15.0
+tensorboard>=2.14.0
+tqdm>=4.66.0
+
+# Configuration
+pyyaml>=6.0
+python-dotenv>=1.0.0
+omegaconf>=2.3.0
+
+# Testing and validation
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# API and serving (optional)
+fastapi>=0.103.0
+uvicorn>=0.23.0
+pydantic>=2.4.0
+
+# Jupyter support
+jupyter>=1.0.0
+ipywidgets>=8.1.0
+nbformat>=5.9.0
+
+# Additional utilities
+click>=8.1.0
+rich>=13.5.0
+typer>=0.9.0
+fire>=0.5.0
+
+# Development tools
+black>=23.7.0
+flake8>=6.1.0
+isort>=5.12.0
+mypy>=1.5.0
+pre-commit>=3.4.0
+
+# Specific versions for compatibility
+protobuf>=3.20.0,<4.0.0
+typing-extensions>=4.8.0
+
+# GPU monitoring (optional)
+gpustat>=1.1.0
+nvidia-ml-py>=12.535.0
+
+# For COCO format handling
+pycocotools>=2.0.7
+
+# Parallel processing
+joblib>=1.3.0
+multiprocess>=0.70.15
+
+# Image augmentation extras
+imgaug>=0.4.0
+augly>=1.0.0
+
+# Model compression (optional)
+torch-pruning>=1.3.0
+onnxslim>=0.1.0
+
+# Deployment utilities
+docker>=6.1.0
+tritonclient[all]>=2.37.0  # For Triton Inference Server
+
+# Documentation
+sphinx>=7.2.0
+sphinx-rtd-theme>=1.3.0
+mkdocs>=1.5.0
+mkdocs-material>=9.4.0
+
+# Note: For Jetson Orin Nano specific dependencies:
+# - TensorRT comes pre-installed with JetPack
+# - Install Jetson-specific packages using:
+#   sudo apt-get install python3-opencv
+#   pip3 install jetson-stats
+#   pip3 install pycuda
+
+# Note: Some packages might need specific versions depending on your CUDA version
+# Check compatibility at: https://pytorch.org/get-started/locally/

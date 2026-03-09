@@ -1,0 +1,228 @@
+# ==============================================================================
+# Docker Compose Configuration for Gemma3N on RTX 5090
+# ==============================================================================
+# Optimized for:
+#   - RTX 5090 (32GB GDDR7, Blackwell sm_120)
+#   - Windows 11 host
+#   - 96GB RAM + 24-core CPU
+#
+# Usage:
+#   docker-compose -f docker-compose.rtx5090.yaml up -d
+#   docker-compose -f docker-compose.rtx5090.yaml --profile monitoring up -d
+# ==============================================================================
+
+services:
+  # ==============================================================================
+  # Main Training Service - RTX 5090 Optimized
+  # ==============================================================================
+  gemma3n-training:
+    build:
+      context: .
+      dockerfile: Dockerfile.rtx5090  # Use RTX 5090-specific Dockerfile
+    image: gemma3n-rtx5090:latest
+    container_name: gemma3n-training-rtx5090
+
+    # GPU Configuration - Single RTX 5090
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1  # Single GPU
+              device_ids: ['0']  # Use first GPU (RTX 5090)
+              capabilities: [gpu]
+
+    # Environment Variables - RTX 5090 Specific
+    environment:
+      # GPU Settings
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_VISIBLE_DEVICES=0
+
+      # CUDA Memory Optimization
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+      # Python Settings
+      - PYTHONUTF8=1
+      - PYTHONUNBUFFERED=1
+
+      # RTX 5090 Blackwell Architecture
+      - TORCH_CUDA_ARCH_LIST=12.0  # sm_120
+      - FORCE_CUDA=1
+
+      # CPU Optimization (24 cores available)
+      # Set to 16 to leave headroom for system
+      - OMP_NUM_THREADS=16
+      - MKL_NUM_THREADS=16
+      - TOKENIZERS_PARALLELISM=false
+
+      # User password (for sudo if needed)
+      - USER_PASSWORD=gemma3n2025
+
+    # Volume Mappings - Windows Paths
+    volumes:
+      # Project directory (current directory)
+      - .:/workspace/project
+
+      # External dataset (RT-DETRv2)
+      # IMPORTANT: This makes dataset images accessible in container
+      # Dataset paths point to: /workspace/project/dataset/...
+      - C:\Users\aleja\Desktop\RT-DETRv2-Densea\rtdetrv2_pytorch\dataset:/workspace/project/dataset:rw
+
+    # Network Ports
+    ports:
+      - "6006:6006"  # TensorBoard
+      - "8888:8888"  # Jupyter (optional)
+
+    # Shared Memory - RTX 5090 + 96GB RAM Optimized
+    # Increased to 64GB (vs typical 32GB)
+    # Allows larger batch sizes without memory issues
+    shm_size: '64gb'
+
+    # IPC Mode - Better multi-process support
+    ipc: host
+
+    # Keep container running for interactive use
+    stdin_open: true
+    tty: true
+
+    # Working directory
+    working_dir: /workspace/project
+
+    # Run as unsloth user (non-root for security)
+    user: unsloth
+
+    # Default command - keep alive
+    command: /bin/bash
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"  # Increased from 10m
+        max-file: "5"    # Increased from 3
+
+  # ==============================================================================
+  # TensorBoard Service (Optional - for monitoring)
+  # ==============================================================================
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: gemma3n-tensorboard
+
+    volumes:
+      - ./outputs:/workspace/outputs:ro
+
+    ports:
+      - "6007:6006"
+
+    working_dir: /workspace
+
+    command: tensorboard --logdir=/workspace/outputs --host=0.0.0.0 --port=6006 --reload_interval=30
+
+    restart: unless-stopped
+    profiles: ["monitoring"]  # Start with: docker-compose --profile monitoring up
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==============================================================================
+  # GPU Monitor Service (Optional - continuous nvidia-smi)
+  # ==============================================================================
+  gpu-monitor:
+    image: gemma3n-rtx5090:latest
+    container_name: gemma3n-gpu-monitor
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+
+    # Continuous GPU monitoring (updates every 2 seconds)
+    command: watch -n 2 nvidia-smi
+
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+    stdin_open: true
+    tty: true
+
+# ==============================================================================
+# Network Configuration
+# ==============================================================================
+networks:
+  default:
+    name: gemma3n-rtx5090-network
+    driver: bridge
+
+# ==============================================================================
+# Usage Instructions
+# ==============================================================================
+#
+# 1. Build and start main training container:
+#      docker-compose -f docker-compose.rtx5090.yaml up -d
+#
+# 2. Verify RTX 5090 detection:
+#      docker exec -it gemma3n-training-rtx5090 python -c \
+#        "import torch; \
+#         print('GPU:', torch.cuda.get_device_name(0)); \
+#         print('Capability:', torch.cuda.get_device_capability(0)); \
+#         assert torch.cuda.get_device_capability(0) == (12, 0), 'Not Blackwell!'"
+#
+# 3. Start monitoring services (TensorBoard + GPU monitor):
+#      docker-compose -f docker-compose.rtx5090.yaml --profile monitoring up -d
+#
+# 4. Access TensorBoard:
+#      http://localhost:6007
+#
+# 5. View GPU monitor:
+#      docker logs -f gemma3n-gpu-monitor
+#
+# 6. Interactive shell:
+#      docker exec -it gemma3n-training-rtx5090 bash
+#
+# 7. Run training:
+#      docker exec -it gemma3n-training-rtx5090 \
+#        bash /workspace/project/tools/train_rtx5090.sh
+#
+# 8. Stop all services:
+#      docker-compose -f docker-compose.rtx5090.yaml down
+#
+# ==============================================================================
+
+# ==============================================================================
+# Troubleshooting
+# ==============================================================================
+#
+# Issue: GPU not detected
+# Solution: Ensure NVIDIA Container Toolkit is installed
+#   - Run: nvidia-smi (should show RTX 5090)
+#   - Run: docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu22.04 nvidia-smi
+#
+# Issue: Wrong compute capability (8,9) instead of (12,0)
+# Solution: Image needs CUDA 12.8+ and PyTorch 2.6+
+#   - Verify: docker exec gemma3n-training-rtx5090 python -c "import torch; print(torch.__version__)"
+#   - Should be: 2.6.0+cu128
+#
+# Issue: Out of memory during training
+# Solution: Reduce batch size in config.rtx5090.yaml
+#   - per_device_train_batch_size: 8  (reduce from 12)
+#   - or max_seq_len: 1536  (reduce from 2048)
+#
+# Issue: Slow training despite RTX 5090
+# Solution: Check GPU utilization
+#   - Run: docker exec gemma3n-training-rtx5090 nvidia-smi
+#   - GPU should be at 95-100% utilization
+#   - If low: increase dataloader_num_workers in config
+#
+# ==============================================================================

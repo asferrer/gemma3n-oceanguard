@@ -1,0 +1,133 @@
+# ==============================================================================
+# Docker-Optimized Configuration for Gemma3N Fine-tuning
+# ==============================================================================
+# This config uses container-compatible paths and settings optimized for
+# Docker deployment. Based on config.yaml with adjusted paths.
+#
+# Usage:
+#   docker exec -it gemma3n-training python tools/train.py --config tools/config.docker.yaml
+# ==============================================================================
+
+training:
+  run_name: "gemma3n_e4b_waste_peft_docker_v2_optimized"  # Descriptive name for this training run
+  output_root: "/workspace/project/outputs/gemma3n"  # Container path for outputs
+  model_name: "unsloth/gemma-3n-E4B-it"  # Base model from Unsloth
+  max_seq_len: 2048  # OPTIMIZED: Reduced from 4096 (sufficient for detection tasks, saves VRAM)
+
+  # --- Precision & Memory ---
+  use_4bit: true  # Enable QLoRA 4-bit quantization (reduces VRAM usage)
+  bf16: true  # Use BFloat16 for training (faster and more stable on modern GPUs)
+  fp16: false  # Disabled, using bf16 instead
+  gradient_checkpointing: true  # Save VRAM at small compute cost (essential for long sequences)
+
+  # --- Optimizer and Scheduler ---
+  epochs: 30  # OPTIMIZED: Reduced from 50 (early stopping handles convergence)
+  optim: "paged_adamw_8bit"  # Memory-efficient 8-bit paged AdamW optimizer
+  weight_decay: 0.01  # L2 regularization to prevent overfitting
+  max_grad_norm: 1.0  # Gradient clipping to prevent exploding gradients
+
+  lr: 5.0e-5  # OPTIMIZED: Increased from 2.0e-5 (better for higher LoRA rank with RSLoRA)
+  warmup_ratio: 0.05  # OPTIMIZED: Increased from 0.03 (more stable warmup)
+  lr_scheduler_type: "cosine"  # Cosine annealing schedule
+
+  # --- Batches and Accumulation ---
+  per_device_train_batch_size: 6  # OPTIMIZED: Increased from 4 (better VRAM utilization with shorter sequences)
+  per_device_eval_batch_size: 4  # OPTIMIZED: Increased from 2 (faster evaluation)
+  gradient_accumulation_steps: 4  # Effective batch size = 6 * 4 = 24 (improved from 16)
+  dataloader_num_workers: 8  # CPU threads for data loading
+
+  # --- Dataset ---
+  dataset_num_proc: 4  # Threads for tokenization (safe in Linux containers)
+  dataset_batch_size: 1000  # Chunk size for dataset.map processing
+
+  # --- Logs and Checkpoints ---
+  logging_steps: 10  # Log every 10 steps
+  logging_first_step: false  # Don't log first step
+  evaluation_strategy: "steps"  # Evaluate every X steps
+  eval_steps: 200  # OPTIMIZED: Reduced from 300 (more frequent validation)
+  save_strategy: "steps"  # Save checkpoint every X steps
+  save_steps: 200  # OPTIMIZED: Matches eval_steps for consistency
+  save_total_limit: 3  # Keep only 3 best checkpoints
+  metric_for_best_model: "eval_loss"  # Use validation loss to determine best model
+  load_best_model_at_end: true  # Load best checkpoint at end of training
+
+  # --- Early Stopping ---
+  early_stopping:
+    enabled: true  # Enable early stopping
+    patience: 5  # OPTIMIZED: Increased from 3 (5 evals = 1000 steps, more robust)
+    threshold: 0.001  # OPTIMIZED: More strict threshold (was 0.0)
+
+  # --- Resume Training ---
+  resume_from_checkpoint: false  # Set to true to resume interrupted training
+  resume_checkpoint_path: null  # Path to specific checkpoint (null = use latest)
+
+  # --- Reproducibility and System ---
+  seed: 21  # Random seed for reproducibility
+  report_to: "none"  # Disable external reporting (wandb, tensorboard)
+
+# ==============================================================================
+# Data Configuration - Container Paths
+# ==============================================================================
+data:
+  # IMPORTANT: Use prepared_dataset_docker/ created by prepare_for_docker.py
+  # These paths should contain relative container paths, not Windows absolute paths
+  train_jsonl: "/workspace/project/prepared_dataset_docker/train_dataset.jsonl"
+  eval_jsonl: "/workspace/project/prepared_dataset_docker/validation_dataset.jsonl"
+
+  # Alternative: Use original prepared_dataset if you've manually fixed paths
+  # train_jsonl: "/workspace/project/prepared_dataset/train_dataset.jsonl"
+  # eval_jsonl: "/workspace/project/prepared_dataset/validation_dataset.jsonl"
+
+# ==============================================================================
+# PEFT (LoRA) Configuration - OPTIMIZED FOR OBJECT DETECTION
+# ==============================================================================
+peft:
+  r: 128  # OPTIMIZED: Increased from 64 (higher capacity for vision tasks)
+  lora_alpha: 256  # OPTIMIZED: Increased from 64 (2:1 ratio with r for better scaling)
+  lora_dropout: 0.1  # OPTIMIZED: Increased from 0.05 (prevent overfitting with 10k samples)
+  use_rslora: true  # Rank-Stabilized LoRA (recommended by Unsloth)
+  tune_vision_layers: true  # Fine-tune vision model layers (CRITICAL for detection)
+  tune_language_layers: true  # Fine-tune language model layers
+  tune_attention_modules: true  # Fine-tune attention layers
+  tune_mlp_modules: true  # Fine-tune MLP (feed-forward) layers
+
+# ==============================================================================
+# System Configuration
+# ==============================================================================
+system:
+  disable_wandb: true  # Disable Weights & Biases integration
+
+logging:
+  console: true  # Show logs in console (in addition to log file)
+
+# ==============================================================================
+# Export Configuration
+# ==============================================================================
+export:
+  merge_and_save: true  # Merge LoRA adapters with base model and save
+  merged_output_dir: null  # Where to save merged model (null = auto in run_dir)
+  merge_dtype: "bf16"  # Precision for merged model (bf16 preserves training quality)
+  export_gguf: false  # Don't export to GGUF format (Llama.cpp)
+  gguf_output_dir: null  # Where to save GGUF
+  gguf_quant: "Q4_K_M"  # GGUF quantization level (if enabled)
+  gguf_source_dir: null  # Source folder for GGUF creation (null = auto-detect)
+
+# ==============================================================================
+# Extra Configuration
+# ==============================================================================
+extras:
+  use_vision_data_collator: true  # Use Unsloth vision data collator
+  attn_implementation: "flash_attention_2"  # Use Flash Attention 2 if available
+  torch_compile: false  # Disabled (incompatible with 4-bit QLoRA)
+  torch_compile_mode: "reduce-overhead"  # Compilation mode (ignored since disabled)
+
+# ==============================================================================
+# Docker-Specific Notes
+# ==============================================================================
+# 1. All paths use container format: /workspace/project/...
+# 2. Dataset must use relative container paths (run prepare_for_docker.py first)
+# 3. Outputs are saved to /workspace/project/outputs/ (mounted to host ./outputs/)
+# 4. HuggingFace cache is persisted in named Docker volume
+# 5. dataset_num_proc increased to 4 (safe in Linux, not Windows)
+# 6. Multi-GPU: Set CUDA_VISIBLE_DEVICES in docker-compose.yml
+# ==============================================================================
