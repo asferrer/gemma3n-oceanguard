@@ -23,9 +23,9 @@ import matplotlib.pyplot as plt
 torch._dynamo.disable()
 torch._dynamo.config.cache_size_limit = 99999999999999999999
 
-# --- CONFIGURACIÓN ---
-IMAGE_DIR = "../RT-DETRv2-Densea/rtdetrv2_pytorch/dataset/cleansea_dataset/CocoFormatDataset/train_coco/test_set"
-ANNOTATION_FILE = "../RT-DETRv2-Densea/rtdetrv2_pytorch/dataset/cleansea_dataset/CocoFormatDataset/train_coco/annotations_densea_grouped.json"
+# --- CONFIGURATION (override IMAGE_DIR / ANNOTATION_FILE via environment variables) ---
+IMAGE_DIR = os.environ.get("EVAL_IMAGE_DIR", "data/images")
+ANNOTATION_FILE = os.environ.get("EVAL_ANNOTATION_FILE", "data/annotations.json")
 VISUALS_DIR = "evaluation_visuals"
 REPORT_FILE = "evaluation_report.png"
 
@@ -33,14 +33,14 @@ IOU_THRESHOLD = 0.5
 LOG_FILE = "evaluation_log.txt"
 LOG_INTERVAL = 10
 
-# --- CARGA DEL MODELO ---
+# --- MODEL LOADING ---
 
 @torch.no_grad()
 def setup_model():
     """Loads and configures the Gemma 3n model and tokenizer."""
-    print("🚀 Loading Gemma 3n model for evaluation...")
+    print("Loading Gemma 3n model for evaluation...")
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name="unsloth/gemma-3n-E4B-it",  # Fixed: Using E4B (4B params) for consistency
+        model_name="unsloth/gemma-3n-e2b-it",
         max_seq_length=4096,
         dtype=torch.float16,
         load_in_4bit=True,
@@ -48,7 +48,7 @@ def setup_model():
     )
     return model, tokenizer
 
-# --- PROMPTS ESPECIALIZADOS ---
+# --- TASK-SPECIFIC PROMPTS ---
 
 def get_detection_prompt(valid_classes):
     """Returns the prompt specialized for the detection task with high precision demands."""
@@ -74,7 +74,7 @@ def get_classification_prompt(valid_classes):
         "Analyze the image and identify all types of man-made waste present. "
         "Return a JSON list containing the names of the debris types you see. "
         f"Each name MUST be one of the following: [{class_list_str}].\n"
-        "Example: [\"Bottle\", \"FishingNet\", \"Can\"]\n"
+        "Example: [\"Bottle\", \"Fishing_Net\", \"Can\"]\n"
         "Your response MUST be ONLY the JSON list."
     )
 
@@ -88,7 +88,7 @@ def run_inference(model, tokenizer, image_path, prompt_text):
         messages = [{"role": "user", "content": prompt_content}]
         
         inputs = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt").to("cuda")
-        output_tokens = model.generate(**inputs, max_new_tokens=2048, temperature=0.3)  # Fixed: Increased from 0.1 for better diversity
+        output_tokens = model.generate(**inputs, max_new_tokens=2048, temperature=0.1)
         raw_response = tokenizer.batch_decode(output_tokens[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0]
         
         match = re.search(r'\[.*\]', raw_response, re.DOTALL)
@@ -103,10 +103,10 @@ def run_inference(model, tokenizer, image_path, prompt_text):
         raw_response += f"\n[PARSING ERROR]: {e}"
         return [], raw_response
 
-# --- FUNCIONES DE VISUALIZACIÓN Y EVALUACIÓN ---
+# --- VISUALIZATION AND EVALUATION ---
 
 def draw_boxes(image, annotations, color, label_key):
-    """Dibuja bounding boxes en una imagen."""
+    """Draws bounding boxes on an image."""
     draw = ImageDraw.Draw(image)
     width, height = image.size
     try:
@@ -127,7 +127,7 @@ def draw_boxes(image, annotations, color, label_key):
     return image
 
 def create_comparison_image(image_path, predictions, ground_truths, output_path):
-    """Crea una imagen de comparación lado a lado para la tarea de detección."""
+    """Creates a side-by-side comparison image (prediction vs. ground truth)."""
     original_image = Image.open(image_path).convert("RGB")
     
     pred_img = draw_boxes(original_image.copy(), predictions, 'cyan', 'debris_type')
@@ -153,12 +153,12 @@ def create_comparison_image(image_path, predictions, ground_truths, output_path)
 
 
 def load_and_process_coco_annotations(coco_file_path):
-    print(f"📖 Loading and processing COCO annotations from: {coco_file_path}")
+    print(f"Loading and processing COCO annotations from: {coco_file_path}")
     try:
         with open(coco_file_path, 'r') as f:
             coco_data = json.load(f)
     except FileNotFoundError:
-        print(f"❌ ERROR: Annotation file not found at {coco_file_path}")
+        print(f"ERROR: Annotation file not found at {coco_file_path}")
         return None, None, None
 
     images_map = {img['id']: img for img in coco_data['images']}
@@ -187,24 +187,24 @@ def load_and_process_coco_annotations(coco_file_path):
 
 def analyze_and_display_annotations_stats(ground_truths_map, categories_map):
     print("\n" + "="*50)
-    print("📊 ANÁLISIS DEL DATASET DE VALIDACIÓN (GROUND-TRUTH)")
+    print("GROUND-TRUTH DATASET ANALYSIS")
     print("="*50)
     num_images = len(ground_truths_map)
     all_annotations = [ann for anns in ground_truths_map.values() for ann in anns]
     num_annotations = len(all_annotations)
     num_classes = len(categories_map)
 
-    print("\n--- Resumen General ---")
-    print(f"  - Total de Imágenes en el set de validación: {num_images}")
-    print(f"  - Total de Anotaciones (instancias): {num_annotations}")
-    print(f"  - Número de Clases: {num_classes}")
+    print("\n--- Summary ---")
+    print(f"  - Total images: {num_images}")
+    print(f"  - Total annotations (instances): {num_annotations}")
+    print(f"  - Number of classes: {num_classes}")
 
-    print("\n--- Distribución de Instancias por Clase ---")
+    print("\n--- Instances per class ---")
     class_counts = defaultdict(int)
     for ann in all_annotations:
         class_counts[ann['class_name']] += 1
 
-    print(f"{'Clase':<20} | {'Instancias':>10}")
+    print(f"{'Class':<20} | {'Instances':>10}")
     print("-" * 33)
     for class_name, count in sorted(class_counts.items(), key=lambda item: item[1], reverse=True):
         print(f"{class_name:<20} | {count:>10}")
@@ -233,7 +233,7 @@ def print_metrics_report(stats, mode, file=None):
             file.write(message + '\n')
 
     log_print("\n" + "="*50)
-    log_print(f"📊 FINAL {mode.upper()} EVALUATION REPORT")
+    log_print(f"FINAL {mode.upper()} EVALUATION REPORT")
     log_print("="*50)
 
     total_tp = sum(s["tp"] for s in stats.values())
@@ -245,9 +245,9 @@ def print_metrics_report(stats, mode, file=None):
     overall_f1 = 2 * (overall_precision * overall_recall) / (overall_precision + overall_recall) if (overall_precision + overall_recall) > 0 else 0
 
     log_print("\n--- Overall Metrics ---")
-    log_print(f"  Precision: {overall_precision:.2%}")
-    log_print(f"  Recall:    {overall_recall:.2%}")
-    log_print(f"  F1-Score:  {overall_f1:.2f}")
+    log_print(f"Precision: {overall_precision:.2%}")
+    log_print(f"Recall:    {overall_recall:.2%}")
+    log_print(f"F1-Score:  {overall_f1:.2f}")
 
     log_print("\n--- Per-Class Metrics ---")
     log_print(f"{'Class':<20} | {'Precision':>10} | {'Recall':>10} | {'F1-Score':>10}")
@@ -262,7 +262,7 @@ def print_metrics_report(stats, mode, file=None):
 
 
 def generate_visual_report(detection_stats, classification_stats, class_counts):
-    """Genera y guarda un dashboard visual con todas las métricas de la evaluación."""
+    """Generates and saves a visual dashboard with all evaluation metrics."""
     
     def get_metrics(stats):
         metrics = {}
@@ -339,10 +339,10 @@ def generate_visual_report(detection_stats, classification_stats, class_counts):
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(REPORT_FILE)
-    print(f"\n✅ Visual report saved to '{REPORT_FILE}'")
+    print(f"\n Visual report saved to '{REPORT_FILE}'")
 
 
-# --- SCRIPT PRINCIPAL ---
+# --- MAIN ---
 
 def main():
     parser = argparse.ArgumentParser(
@@ -359,20 +359,20 @@ def main():
     
     if ground_truths_map is None: return
 
-    print(f"\n🔍 Verificando imágenes existentes en el directorio: {IMAGE_DIR}")
+    print(f"\n Checking images in directory: {IMAGE_DIR}")
     if not os.path.isdir(IMAGE_DIR):
-        print(f"❌ ERROR: El directorio de imágenes no existe: {IMAGE_DIR}")
+        print(f"ERROR: image directory does not exist: {IMAGE_DIR}")
         return
         
     actual_files_in_dir = set(os.listdir(IMAGE_DIR))
     image_files_to_process = [f for f in image_files_from_coco if f in actual_files_in_dir]
     
-    print(f"  - {len(image_files_from_coco)} imágenes encontradas en el fichero de anotaciones.")
-    print(f"  - {len(actual_files_in_dir)} imágenes encontradas en el directorio.")
-    print(f"  - {len(image_files_to_process)} imágenes en común se procesarán.")
+    print(f"  - {len(image_files_from_coco)} images found in the annotation file.")
+    print(f"  - {len(actual_files_in_dir)} images found in the directory.")
+    print(f"  - {len(image_files_to_process)} common images will be processed.")
     
     if not image_files_to_process:
-        print("❌ No hay imágenes en común para procesar. Revisa las rutas.")
+        print("No common images to process. Check the paths.")
         return
 
     valid_class_names = list(categories_map.values())
@@ -380,7 +380,7 @@ def main():
 
     if args.draw:
         os.makedirs(VISUALS_DIR, exist_ok=True)
-        print(f"\n🎨 Visual comparison images will be saved to '{VISUALS_DIR}/'")
+        print(f"\n Visual comparison images will be saved to '{VISUALS_DIR}/'")
 
     detection_stats = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
     classification_stats = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
@@ -388,7 +388,7 @@ def main():
     with open(LOG_FILE, 'w', encoding='utf-8') as log_f:
         log_f.write("OceanGuard AI - Dual Evaluation Log\n" + "="*40 + "\n\n")
 
-        print(f"\n🔬 Starting dual evaluation on {len(image_files_to_process)} images...")
+        print(f"\n Starting dual evaluation on {len(image_files_to_process)} images...")
         
         for i, filename in enumerate(image_files_to_process):
             print(f"  -> Processing image {i+1}/{len(image_files_to_process)}: {filename}")
@@ -454,15 +454,15 @@ def main():
             for cls in fn_classes: classification_stats[cls]["fn"] += 1
             
             if (i + 1) % LOG_INTERVAL == 0 or (i + 1) == len(image_files_to_process):
-                print(f"   [Progreso {i+1}/{len(image_files_to_process)}]")
-                for mode, stats in [('Detección', detection_stats), ('Clasificación', classification_stats)]:
+                print(f"   [Progress {i+1}/{len(image_files_to_process)}]")
+                for mode, stats in [('Detection', detection_stats), ('Classification', classification_stats)]:
                     tp = sum(s["tp"] for s in stats.values())
                     fp = sum(s["fp"] for s in stats.values())
                     fn = sum(s["fn"] for s in stats.values())
                     precision = tp / (tp + fp) if (tp + fp) > 0 else 0
                     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
                     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-                    print(f"     - {mode}: Precisión: {precision:.2%} | Recall: {recall:.2%} | F1-Score: {f1:.2f}")
+                    print(f"     - {mode}: Precision: {precision:.2%} | Recall: {recall:.2%} | F1-Score: {f1:.2f}")
 
         print_metrics_report(detection_stats, 'detection')
         print_metrics_report(classification_stats, 'classification')
@@ -471,10 +471,10 @@ def main():
         print_metrics_report(classification_stats, 'classification', file=log_f)
     
     if args.report:
-        print("\n🎨 Generando informe visual...")
+        print("\n Generating visual report...")
         generate_visual_report(detection_stats, classification_stats, class_counts)
 
-    print(f"\n✅ Evaluation finished. See '{LOG_FILE}' for detailed results.")
+    print(f"\n Evaluation finished. See '{LOG_FILE}' for detailed results.")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "gemma3n-oceanguard: zero-shot marine debris detection and survey reporting with Gemma 3n"
+type: software
+authors:
+  - family-names: "Sánchez Ferrer"
+    given-names: "Alejandro"
+license: Apache-2.0
+date-released: "2025-07-24"
+repository-code: "https://github.com/asferrer/gemma3n-oceanguard"

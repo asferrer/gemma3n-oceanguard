@@ -17,7 +17,6 @@ from app import utils, gemma_handler, ui_components, config
 # --- Page Configuration ---
 st.set_page_config(
     page_title="OceanGuard AI - Advanced Mapping",
-    page_icon="🛰️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -33,7 +32,7 @@ if 'selected_language' not in st.session_state:
     st.session_state.selected_language = 'en'
     
 # --- Main App ---
-st.title("🛰️ OceanGuard AI: Scientific Mapping Platform")
+st.title("OceanGuard AI: Scientific Mapping Platform")
 st.markdown("Upload underwater images, analyze debris pollution, and generate environmental impact reports with **Google Gemma 3n**.")
 
 # Load Model
@@ -41,7 +40,7 @@ model, tokenizer = gemma_handler.setup_model()
 
 # --- Sidebar Controls ---
 with st.sidebar:
-    st.header("⚙️ Project Controls")
+    st.header("Project Controls")
     
     uploaded_files = st.file_uploader(
         "Upload your transect images",
@@ -86,7 +85,7 @@ with st.sidebar:
                         image = Image.open(file_data['file']).convert("RGB")
                         detections = gemma_handler.run_debris_detection(model, tokenizer, image)
                         file_data['analysis'] = {"detections": detections}
-                progress_bar.progress(1.0, "✅ Analysis complete.")
+                progress_bar.progress(1.0, "Analysis complete.")
                 # Clear old reports after re-analyzing
                 st.session_state.location_reports = {}
             else:
@@ -115,9 +114,9 @@ if st.session_state.project_files:
 if not analyzed_data:
     st.info("Welcome to OceanGuard AI. Upload images and click 'Analyze Project Images' to begin.")
 else:
-    tab_list = ["📊 Main Dashboard", "📸 Individual Reports"]
+    tab_list = ["Main Dashboard", "Individual Reports"]
     if st.session_state.location_reports:
-        tab_list.append("📄 AI Generated Reports")
+        tab_list.append("AI Generated Reports")
     
     tabs = st.tabs(tab_list)
     
@@ -134,11 +133,11 @@ else:
                 with st.container(border=True):
                     col1, col2 = st.columns([3, 1])
                     with col1:
-                        st.subheader(f"📍 Location: {loc_name}")
+                        st.subheader(f"Location: {loc_name}")
                     with col2:
                         report_filename = f"report_{loc_name.lower().replace(' ', '_').lower()}_{st.session_state.get('selected_language', 'en')}.md"
                         st.download_button(
-                            label="📥 Download",
+                            label="Download",
                             data=report_text.encode('utf-8'),
                             file_name=report_filename,
                             mime="text/markdown",
@@ -151,7 +150,7 @@ else:
     # --- Sidebar - Export & Report Generation ---
     with st.sidebar:
         st.markdown("---")
-        st.header("📥 Export & Report")
+        st.header("Export & Report")
         
         report_data_list = []
         for d in analyzed_data:
@@ -183,7 +182,7 @@ else:
             key="lang_selector"
         )
         
-        if st.button("Generate Reports by Location ✍️", use_container_width=True):
+        if st.button("Generate Reports by Location ", use_container_width=True):
             if model and analyzed_data:
                 # Group data by location
                 locations = {}
@@ -212,7 +211,7 @@ else:
                             model, tokenizer, summary_payload, language=report_language
                         )
                         st.session_state.location_reports[loc_name] = report
-                st.success("Reports generated successfully! You can view and download them in the AI Generated Reports section.", icon="✅")
+                st.success("Reports generated successfully! You can view and download them in the AI Generated Reports section.", icon="")
                 st.rerun() # Rerun to show the new tab with reports
             elif not model:
                 st.error("Model not loaded.")

@@ -1,137 +1,82 @@
-# 🌊 OceanGuard AI: Where AI Meets Ocean Conservation
+# gemma3n-oceanguard
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Model-Gemma%203n-blue?style=for-the-badge&logo=google-gemini" alt="Model">
-  <img src="https://img.shields.io/badge/Framework-Streamlit-red?style=for-the-badge&logo=streamlit" alt="Framework">
-  <img src="https://img.shields.io/badge/Optimized%20by-Unsloth-green?style=for-the-badge" alt="Unsloth">
-  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License">
-</p>
+Prototype that uses the multimodal [Gemma 3n](https://ai.google.dev/gemma) model (4-bit, via
+[Unsloth](https://github.com/unslothai/unsloth)) to detect and count marine debris in underwater images and to
+turn the detections into geolocated survey reports. It was built as a proof of concept for a language-model-based
+alternative to the dedicated detectors used in the rest of the OceanguardAI project.
 
----
+The model is used zero-shot: there is no fine-tuning in this repository, and its detections are not comparable
+in accuracy to the trained detectors (RT-DETRv2, RF-DETR, DiffusionDet).
 
-### 🆘 The Crisis: A Plastic Ocean
-
-By 2050, our oceans could contain more plastic than fish by weight. Traditional monitoring methods like manual surveys and satellite imagery are too slow, expensive, and limited in scope to tackle this global crisis. They fail to detect underwater debris, which constitutes over 90% of the problem, and suffer from significant delays between data collection and actionable insights.
-
-### 💡 The Solution: OceanGuard AI
-
-**OceanGuard AI** transforms every underwater camera into an intelligent ocean guardian. This project leverages the power of Google's multimodal **Gemma 3n** model, optimized with Unsloth, to create a real-time, scalable, and globally accessible platform for detecting, analyzing, and mapping marine pollution. We turn raw imagery into actionable conservation intelligence in seconds, not months.
-
----
-
-## 🚀 Revolutionary Features
-
--   **🧠 JSON Intelligence & Robust Parsing**: We force Gemma to think in structured data with a JSON-first prompt. A custom robust parser corrects common model errors, ensuring 100% reliable data ingestion for automated systems.
--   **🛰️ Smart Geolocation & Data Enrichment**: Every image is automatically tagged with geospatial data. The system extracts GPS coordinates from EXIF metadata or assigns a location from a global catalog of dive sites, ensuring every data point has a geographical context.
--   **📊 Advanced Ecosystem Health Score**: A unique algorithm calculates a real-time ocean health score based on debris type, threat level, and pollution density, providing an instant metric for environmental impact.
--   **🌍 Multilingual Generative Reports**: Gemma acts as an expert analyst, synthesizing quantitative data into multilingual conservation reports (EN, ES, JA, etc.) complete with actionable recommendations for policymakers and cleanup crews.
--   **🎨 Dynamic & Interactive Visualization**: The platform features an interactive 3D geospatial map, visual bounding box overlays, and detailed environmental impact dashboards for each detected item.
--   **⚡ Optimized Real-Time Performance**: With Unsloth's 4-bit quantization, we achieve high-speed image analysis on a single GPU, making real-time response a reality.
-
----
-
-## 🛠️ Technology Stack
-
--   **Core Model**: Google Gemma 3n (`unsloth/gemma-3n-e4b-it` & `unsloth/gemma-3n-e2b-it`)
--   **Optimization**: Unsloth AI for 2x faster fine-tuning and memory efficiency.
--   **Interactive Demo**: Streamlit
--   **Geospatial Mapping**: Pydeck
--   **Data Analysis & Visualization**: Pandas, Matplotlib, Seaborn
--   **Core Libraries**: PyTorch, Transformers, Pillow
-
----
-
-## 📂 Repository Structure
-
-This repository contains the full project, including the research notebook, a deployable Streamlit application, and standalone scripts for inference and evaluation.
+## Contents
 
 ```
-.
-├── 📄 oceanguard.ipynb            # Main Jupyter Notebook with analysis, visualizations, and narrative.
-├── README.md                   # This README file.
-├── 📜 inference_gemma.py          # Standalone CLI script for quick detection or counting.
-├── 📊 evaluate_performance.py     # Script to quantitatively evaluate model performance.
-└── 📁 app/
-    ├── 🚀 main.py                  # Entry point for the interactive Streamlit demo.
-    ├── 🤖 gemma_handler.py          # Core logic for Gemma model inference and report generation.
-    ├── 🛠️ utils.py                  # Helper functions (EXIF extraction, health score, robust JSON parsing).
-    ├── 🎨 ui_components.py          # Functions for building Streamlit UI elements (maps, charts, reports).
-    └── ⚙️ config.py                 # Central configuration for prompts, data, and settings.
+app/                    Streamlit application
+  main.py               Entry point (upload, analysis, dashboard, reports)
+  gemma_handler.py      Model loading, detection prompt, report generation
+  ui_components.py      Maps, charts and per-image panels
+  utils.py              EXIF GPS extraction, health score, tolerant JSON parsing
+  config.py             Prompts, debris impact table, dive-site catalogue
+scripts/
+  inference_gemma.py    Command-line detection / counting
+  evaluate_performance.py   Detection and classification evaluation on a COCO-format dataset
 ```
 
----
+## Features
 
-## 🏁 Getting Started
+- Detection of debris items with class, material, confidence and normalized bounding box, returned as JSON.
+- Tolerant parsing of the model output (extra text, missing commas between objects).
+- GPS coordinates read from EXIF metadata; images without GPS get a location from a small catalogue of dive
+  sites (`app/config.py`).
+- Per-location ecosystem health score and impact table (degradation time and risk per debris type).
+- Survey reports generated by the model in six languages (EN, ES, FR, DE, IT, PT) and CSV export.
 
-### 1. Jupyter Notebook (`oceanguard.ipynb`)
+## Installation
 
-The notebook is the centerpiece of this project, offering a deep dive into the technology and its impact.
+Requirements: Python 3.10+, an NVIDIA GPU with CUDA 12.8, and access to the
+`unsloth/gemma-3n-e2b-it` weights on Hugging Face (accept the Gemma terms of use first).
 
--   **Setup**: The first code cell installs all necessary dependencies.
--   **Execution**: Run the cells sequentially to experience the full analysis pipeline, from model setup to generating the final visualizations and reports.
+```bash
+git clone https://github.com/asferrer/gemma3n-oceanguard.git && cd gemma3n-oceanguard
+python -m venv .venv && source .venv/bin/activate
+pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
+```
 
-### 2. Interactive Streamlit Demo (`app/`)
+## Usage
 
-The demo provides a hands-on experience with the OceanGuard AI platform.
+Streamlit application:
 
--   **Installation**:
-    ```bash
-    pip install -r requirements.txt # (Assuming you create a requirements file)
-    ```
--   **Running the App**:
-    ```bash
-    streamlit run app/main.py
-    ```
-    Navigate to the local URL provided by Streamlit to upload images and interact with the platform.
+```bash
+streamlit run app/main.py
+```
 
-### 3. Command-Line Inference (`inference_gemma.py`)
+Command-line inference:
 
-This script allows for direct, headless analysis of images. It has two modes:
+```bash
+python scripts/inference_gemma.py --mode detect --path image.jpg   # writes image_analyzed.jpg
+python scripts/inference_gemma.py --mode count  --path img1.jpg img2.jpg
+```
 
--   **Detect Mode**: Identifies debris, provides bounding boxes, and saves an annotated image.
-    ```bash
-    python inference_gemma.py --mode detect --path "path/to/your/image.jpg"
-    ```
--   **Count Mode**: Provides a quick JSON summary of debris types and counts.
-    ```bash
-    python inference_gemma.py --mode count --path "path/to/your/image.jpg"
-    ```
+Evaluation on a COCO-format dataset (images in one folder, one annotation file):
 
-### 4. Performance Evaluation (`evaluate_performance.py`)
+```bash
+EVAL_IMAGE_DIR=path/to/images EVAL_ANNOTATION_FILE=path/to/annotations.json \
+  python scripts/evaluate_performance.py --draw --report
+```
 
-This script benchmarks the model's accuracy against a labeled dataset (e.g., CleanSea in COCO format).
+The script reports per-class precision, recall and F1 at IoU 0.5 for detection, and image-level classification.
 
--   **Configuration**: Update the `IMAGE_DIR` and `ANNOTATION_FILE` paths inside the script to point to your dataset.
--   **Execution**:
-    ```bash
-    # Run standard evaluation
-    python evaluate_performance.py
+## License and third-party terms
 
-    # Run with verbose output and generate comparison images
-    python evaluate_performance.py -v --draw
+The code is released under the Apache License 2.0 (see `LICENSE`). Gemma 3n weights are distributed under the
+[Gemma Terms of Use](https://ai.google.dev/gemma/terms) and are not included here. Unsloth is licensed under
+Apache-2.0 (core) and its own terms for some components; check them before redistribution.
 
-    # Generate a final visual report dashboard
-    python evaluate_performance.py --report
-    ```
+## Citation
 
----
+See `CITATION.cff`.
 
-## 🔮 Impact & Future Roadmap
+## Author
 
-OceanGuard AI is not just a concept; it's a scalable solution ready for global deployment.
-
--   **📈 Immediate Impact**: Our AI pipeline is up to **10,000x faster** than manual surveys, drastically reducing costs and enabling rapid, data-driven conservation efforts.
--   **🤖 Future Vision**:
-    -   **Edge AI Deployment**: Port the model to **NVIDIA Jetson Orin Nano** for real-time analysis on autonomous underwater drones.
-    -   **Specialized Fine-Tuning**: Continuously improve accuracy by fine-tuning on datasets like **CleanSea** to create expert models for specific regions.
-    -   **Predictive Analysis**: Integrate with oceanographic models to predict future debris hotspots.
-    -   **Global API**: Offer a scalable API for institutions and NGOs to integrate our capabilities into their platforms.
-
----
-
-## 🤝 Join the Revolution
-
-OceanGuard AI is ready to evolve. If you're passionate about leveraging AI for ocean conservation, let's connect and build the world's largest marine protection network together.
-
--   **Contact**: [Alejandro Sánchez Ferrer on LinkedIn](https://www.linkedin.com/in/alejandro-sanchez-ferrer/)
--   **Team**: © 2025 Saflex Team
+Alejandro Sánchez Ferrer.

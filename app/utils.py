@@ -49,7 +49,7 @@ def calculate_ecosystem_health(detections):
         debris_type_str = d.get('debris_type', 'default').lower()
         
         # Find the best matching key from our config, ignoring case.
-        # The `k.lower() in debris_type_str` part allows for partial matches (e.g., 'net' in 'FishingNet').
+        # The `k.lower() in debris_type_str` part allows for partial matches (e.g., 'net' in 'fishing_net').
         impact_key = next(
             (k for k in config.DEBRIS_IMPACT_DATA if k.lower() in debris_type_str), 
             "Default" # Fallback to the correctly capitalized "Default" key if no match is found

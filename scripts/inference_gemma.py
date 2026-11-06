@@ -1,28 +1,28 @@
-"""
-Script para la Detección y Conteo de Residuos Marinos usando Gemma 3n.
+"""Marine debris detection and counting with Gemma 3n.
 
-Este script ofrece dos modos de operación:
-1. 'detect': Identifica residuos, su material y dibuja un bounding box preciso.
-2. 'count': Realiza un conteo rápido de los tipos de residuos en la imagen.
+Modes:
+  detect  Identify debris items, their material and bounding boxes, and save an annotated image.
+  count   Count debris items per type and print a JSON summary.
+
+Usage:
+  python scripts/inference_gemma.py --mode detect --path image.jpg
+  python scripts/inference_gemma.py --mode count --path image1.jpg image2.jpg
 """
+import argparse
 import torch
 from unsloth import FastLanguageModel
 from PIL import Image, ImageDraw, ImageFont
-import requests
-from io import BytesIO
 import json
 import os
 from collections import Counter
 
-# Configuraciones de Torch
+# Torch settings
 torch._dynamo.disable()
 torch._dynamo.config.cache_size_limit = 99999999999999999999
 
 def setup_model():
-    """
-    Carga y configura el modelo Gemma 3n y el tokenizador desde Hugging Face.
-    """
-    print("🚀 Cargando el modelo Gemma 3n... Esto puede tardar unos minutos.")
+    """Loads Gemma 3n and its tokenizer from Hugging Face."""
+    print("Loading Gemma 3n (this can take a few minutes)...")
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name="unsloth/gemma-3n-e2b-it",
         max_seq_length=4096,
@@ -33,24 +33,20 @@ def setup_model():
     return model, tokenizer
 
 def load_image_from_path(path: str) -> Image.Image:
-    """
-    Carga una imagen desde una ruta de archivo local.
-    """
+    """Loads an image from a local path."""
     try:
         image = Image.open(path).convert("RGB")
-        print(f"✅ Imagen cargada correctamente desde la ruta local: {path}")
+        print(f"Image loaded from: {path}")
         return image
     except FileNotFoundError:
-        print(f"❌ Error: No se encontró el archivo en la ruta: {path}")
+        print(f"Error: file not found: {path}")
         return None
     except Exception as e:
-        print(f"❌ Error al abrir la imagen local: {e}")
+        print(f"Error opening image: {e}")
         return None
 
 def visualize_bounding_boxes(image: Image.Image, detections: list) -> Image.Image:
-    """
-    Dibuja los bounding boxes y etiquetas sobre una imagen.
-    """
+    """Draws bounding boxes and labels on an image."""
     img_draw = image.copy()
     draw = ImageDraw.Draw(img_draw)
     width, height = img_draw.size
@@ -83,11 +79,9 @@ def visualize_bounding_boxes(image: Image.Image, detections: list) -> Image.Imag
     return img_draw
 
 def analyze_seabed_image(model, tokenizer, image_path: str, mode: str = 'detect'):
-    """
-    Analiza una imagen del fondo marino en el modo especificado ('detect' o 'count').
-    """
+    """Analyzes a seabed image in the given mode ('detect' or 'count')."""
     print("-" * 50)
-    print(f"🖼️  Analizando la imagen: {image_path} (Modo: {mode})")
+    print(f"Analyzing image: {image_path} (mode: {mode})")
 
     image = load_image_from_path(image_path)
     if image is None:
@@ -109,7 +103,7 @@ def analyze_seabed_image(model, tokenizer, image_path: str, mode: str = 'detect'
             "Your response MUST be ONLY the JSON object, without any other text or markdown."
         )
     else:
-        print(f"❌ Error: Modo '{mode}' no reconocido. Use 'detect' o 'count'.")
+        print(f"Error: unknown mode '{mode}'. Use 'detect' or 'count'.")
         return None
 
     prompt_content = [{"type": "image", "image": image}, {"type": "text", "text": prompt_text}]
@@ -123,73 +117,58 @@ def analyze_seabed_image(model, tokenizer, image_path: str, mode: str = 'detect'
         output_tokens = model.generate(**inputs, max_new_tokens=1024, temperature=0.1)
         response_text = tokenizer.batch_decode(output_tokens[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0]
         
-        print("\n🤖 Respuesta del Modelo (JSON crudo):")
+        print("\n Respuesta del Modelo (JSON crudo):")
         print(response_text)
         
         json_str = response_text.strip().replace("```json", "").replace("```", "")
         parsed_json = json.loads(json_str)
 
-        # ### NUEVO: Procesamiento según el modo ###
         if mode == 'detect':
-            print(f"\n✅ Se encontraron {len(parsed_json)} objetos para detectar.")
+            print(f"\nDetected {len(parsed_json)} objects.")
             annotated_image = visualize_bounding_boxes(image, parsed_json)
             base, _ = os.path.splitext(image_path)
             output_path = f"{base}_analyzed.jpg"
             annotated_image.save(output_path)
-            print(f"💾 Imagen con anotaciones guardada en: {output_path}")
+            print(f"Annotated image saved to: {output_path}")
             return parsed_json
         
         elif mode == 'count':
-            print("\n📊 Resumen de Conteo para esta imagen:")
+            print("\n Resumen de Conteo para esta imagen:")
             if not parsed_json:
-                print("  No se encontraron residuos.")
+                print("No debris found.")
             else:
                 for debris_type, count in parsed_json.items():
                     print(f"  - {debris_type}: {count}")
             return parsed_json
 
     except json.JSONDecodeError:
-        print("❌ Error: La respuesta del modelo no es un JSON válido.")
+        print("Error: the model response is not valid JSON.")
     except Exception as e:
-        print(f"❌ Ha ocurrido un error durante la inferencia: {e}")
+        print(f"Inference error: {e}")
     finally:
         torch.cuda.empty_cache()
     
     return None
 
 
-if __name__ == "__main__":
-    gemma_model, gemma_tokenizer = setup_model()
+def main():
+    parser = argparse.ArgumentParser(description="Marine debris detection/counting with Gemma 3n.")
+    parser.add_argument("--mode", choices=["detect", "count"], default="detect")
+    parser.add_argument("--path", nargs="+", required=True, help="One or more image paths.")
+    args = parser.parse_args()
 
-    example_images = [
-        "../mis_imagenes_submarinas/HPD2032OUT0050.jpg",
-        "../mis_imagenes_submarinas/HPD1938HDTV20368.jpg",
-        "../mis_imagenes_submarinas/2K0126IN0025Hp03-05.jpg",
-        "../mis_imagenes_submarinas/HPD1814HDTV0820.jpg",
-    ]
-    
-    # --- DEMO MODO CONTEO Y REPORTE AGREGADO ---
-    print("\n" + "="*20 + " INICIANDO MODO CONTEO " + "="*20)
+    model, tokenizer = setup_model()
     total_counts = Counter()
-    for path in example_images:
-        if os.path.exists(path):
-            counts = analyze_seabed_image(gemma_model, gemma_tokenizer, path, mode='count')
-            if counts:
-                total_counts.update(counts)
-        else:
-            print(f"⚠️  Advertencia: El archivo no existe, saltando: {path}")
+    for path in args.path:
+        result = analyze_seabed_image(model, tokenizer, path, mode=args.mode)
+        if args.mode == "count" and result:
+            total_counts.update(result)
 
-    print("\n" + "="*20 + " REPORTE FINAL DE CONTEO " + "="*20)
-    print("Se ha generado el siguiente resumen agregado de todas las imágenes:")
-    if not total_counts:
-        print("No se encontraron residuos en ninguna imagen.")
-    else:
+    if args.mode == "count":
+        print("Aggregated counts over all images:")
         for debris_type, count in total_counts.items():
-            print(f"  - Total de '{debris_type}': {count}")
-    print("="*62)
+            print(f"  - {debris_type}: {count}")
 
-    # --- DEMO MODO DETECCIÓN---
-    print("\n" + "="*20 + " INICIANDO MODO DETECCIÓN " + "="*20)
-    if os.path.exists(example_images[0]):
-        analyze_seabed_image(gemma_model, gemma_tokenizer, example_images[0], mode='detect')
-    print("="*64)
+
+if __name__ == "__main__":
+    main()

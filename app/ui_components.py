@@ -89,7 +89,7 @@ def display_main_dashboard(analyzed_data: list, confidence_threshold: float):
     all_filtered_detections = [det for d in data_to_display for det in d['filtered_analysis']['detections']]
     
     if not all_filtered_detections:
-        st.success(f"✅ Great news! No debris found for '{selected_location}' with a confidence above {confidence_threshold:.0%}.")
+        st.success(f"Great news! No debris found for '{selected_location}' with a confidence above {confidence_threshold:.0%}.")
     else:
         col1, col2 = st.columns([1, 2])
         with col1:
@@ -135,7 +135,7 @@ def display_individual_reports(analyzed_data: list):
             
         st.subheader("Environmental Impact Panel")
         if not detections:
-            st.success("✅ No debris detected with the current confidence filter.")
+            st.success("No debris detected with the current confidence filter.")
         else:
             for det in detections:
                 debris_type = det.get('debris_type', 'Unknown')
@@ -157,6 +157,6 @@ def display_individual_reports(analyzed_data: list):
                         st.markdown(f"<p style='font-size: 48px; text-align: center;'>{impact_info['icon']}</p>", unsafe_allow_html=True)
                     with col_info:
                         st.subheader(debris_type)
-                        st.markdown(f"**🎯 Detection Confidence:** {confidence:.1%}")
-                        st.markdown(f"**⏳ Degradation Time:** {impact_info['degradation']} | **🚨 Primary Risk:** {impact_info['risk']}")
+                        st.markdown(f"** Detection Confidence:** {confidence:.1%}")
+                        st.markdown(f"** Degradation Time:** {impact_info['degradation']} | ** Primary Risk:** {impact_info['risk']}")
 

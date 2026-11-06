@@ -38,30 +38,30 @@ SUMMARY_REPORT_PROMPT_TEMPLATE = (
 # Data on the environmental impact of different types of debris
 DEBRIS_IMPACT_DATA = {
     # Specific Plastic Items
-    "Bottle": {"degradation": "450+ years", "risk": "Ingestion by marine life, microplastic pollution.", "icon": "🍾", "risk_score": 8},
-    "PlasticBag": {"degradation": "20+ years", "risk": "Suffocation hazard for turtles and marine mammals.", "icon": "🛍️", "risk_score": 9},
-    "Food_Wrapper": {"degradation": "50-80 years", "risk": "Commonly ingested, leading to internal injuries.", "icon": "🍫", "risk_score": 7},
-    "FishingNet": {"degradation": "600+ years", "risk": "Ghost fishing, entanglement of large animals.", "icon": "🕸️", "risk_score": 10},
-    "Rope": {"degradation": "50-100 years", "risk": "Entanglement of corals and marine animals.", "icon": " रस्सी", "risk_score": 8},
+    "Bottle": {"degradation": "450+ years", "risk": "Ingestion by marine life, microplastic pollution.", "risk_score": 8},
+    "Plastic_Bag": {"degradation": "20+ years", "risk": "Suffocation hazard for turtles and marine mammals.", "risk_score": 9},
+    "Food_Wrapper": {"degradation": "50-80 years", "risk": "Commonly ingested, leading to internal injuries.", "risk_score": 7},
+    "Fishing_Net": {"degradation": "600+ years", "risk": "Ghost fishing, entanglement of large animals.", "risk_score": 10},
+    "Rope": {"degradation": "50-100 years", "risk": "Entanglement of corals and marine animals.", "risk_score": 8},
     
     # Specific Metal Items
-    "Can": {"degradation": "50-200 years", "risk": "Physical injury from sharp edges, chemical leaching.", "icon": "🥫", "risk_score": 6},
+    "Can": {"degradation": "50-200 years", "risk": "Physical injury from sharp edges, chemical leaching.", "risk_score": 6},
     
     # Specific Rubber Items
-    "Tire": {"degradation": "2000+ years", "risk": "Leaches toxic chemicals (zinc, heavy metals) into the ecosystem.", "icon": "�", "risk_score": 9},
+    "Tire": {"degradation": "2000+ years", "risk": "Leaches toxic chemicals (zinc, heavy metals) into the ecosystem.", "risk_score": 9},
     
     # Generic Material Categories (as fallbacks)
-    "Plastic": {"degradation": "450+ years", "risk": "Ingestion, microplastics.", "icon": "💧", "risk_score": 8},
-    "Metal": {"degradation": "50-200 years", "risk": "Chemical leaching.", "icon": "🔩", "risk_score": 6},
-    "Glass": {"degradation": "1,000,000+ years", "risk": "Physical injury hazard.", "icon": "🏺", "risk_score": 4},
-    "Fabric": {"degradation": "1-200+ years", "risk": "Releases microfibers, entanglement.", "icon": "👕", "risk_score": 5},
-    "Rubber": {"degradation": "50-80 years", "risk": "Leaches toxic chemicals.", "icon": "🧤", "risk_score": 7},
-    "Default": {"degradation": "Unknown", "risk": "Unknown environmental risk.", "icon": "❓", "risk_score": 3}
+    "Plastic": {"degradation": "450+ years", "risk": "Ingestion, microplastics.", "risk_score": 8},
+    "Metal": {"degradation": "50-200 years", "risk": "Chemical leaching.", "risk_score": 6},
+    "Glass": {"degradation": "1,000,000+ years", "risk": "Physical injury hazard.", "risk_score": 4},
+    "Fabric": {"degradation": "1-200+ years", "risk": "Releases microfibers, entanglement.", "risk_score": 5},
+    "Rubber": {"degradation": "50-80 years", "risk": "Leaches toxic chemicals.", "risk_score": 7},
+    "Default": {"degradation": "Unknown", "risk": "Unknown environmental risk.", "risk_score": 3}
 }
 
 COLOR_MAP = {
     "bottle": "#FF1493",
-    "PlasticBag": "#FF69B4",
+    "plastic_bag": "#FF69B4",
     "food_wrapper": "#FFC0CB",
     "plastic": "#FF1493",
     "can": "#1E90FF",
@@ -70,7 +70,7 @@ COLOR_MAP = {
     "tire": "#FFD700",
     "rubber": "#FFD700",
     "glass": "#00CED1",
-    "FishingNet": "#FF8C00",
+    "fishing_net": "#FF8C00",
     "net": "#FF8C00",
     "rope": "#FFA500",
     "default": "#FFFFFF"
