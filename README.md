@@ -22,6 +22,18 @@ scripts/
   evaluate_performance.py   Detection and classification evaluation on a COCO-format dataset
 ```
 
+## Pipeline
+
+```mermaid
+flowchart LR
+    IMG["Underwater images"] --> DET["Gemma 3n zero-shot detection<br/>run_debris_detection"]
+    DET --> PARSE["Tolerant JSON parsing<br/>robust_json_parser"]
+    PARSE --> GPS["Location: EXIF GPS<br/>or dive-site catalogue"]
+    GPS --> HEALTH["Health score<br/>and impact table"]
+    HEALTH --> REP["Survey report<br/>generate_summary_report"]
+    REP --> OUT["Dashboard and CSV export"]
+```
+
 ## Features
 
 - Detection of debris items with class, material, confidence and normalized bounding box, returned as JSON.
